@@ -1,0 +1,22 @@
+# if using GPU, it needs CUDA >= 10.1 and CuDNN (it also works with cpu only)
+
+torch
+
+torch-scatter==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
+torch-sparse==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
+torch-cluster==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
+torch-spline-conv==latest+cu101 -f https://pytorch-geometric.com/whl/torch-1.4.0.html
+torch-geometric
+
+pathfinding
+tqdm
+wandb
+gym
+plotly
+
+# for sokoban trace
+imageio
+pdfrw 
+
+# gym-sokoban <- custom modifications included
+# stable-baselined <- vec_env included

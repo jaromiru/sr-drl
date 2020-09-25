@@ -1,0 +1,13 @@
+The external planning requires one of these:
+
+A)
+pddl-astar from https://gitlab.com/danfis/cpddl 
+
+git clone https://gitlab.com/danfis/cpddl.git
+cd cpddl
+./scripts/build.sh 
+cp bin/pddl-astar ../rrl-boxworld/_plan/
+
+B)
+fast-downward from http://www.fast-downward.org/
+-> this option requires to edit boxworld_plan_external.py
