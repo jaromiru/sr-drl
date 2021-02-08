@@ -1,4 +1,4 @@
-import numpy as np, scipy
+import numpy as np, scipy.stats
 import gym, torch, boxworld
 
 import wandb, argparse, itertools, os
@@ -32,9 +32,9 @@ def get_args():
 	cuda_devices = [f'cuda:{i}' for i in range(torch.cuda.device_count())]
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-device', type=str, choices=['auto', 'cpu', 'cuda'] + cuda_devices, default='auto', help="Which device to use")
-	parser.add_argument('-cpus', type=str, default='auto', help="How many CPUs to use")
-	parser.add_argument('-batch', type=int, default=256, help="Size of a batch / How many CPUs to use")
+	parser.add_argument('-device', type=str, choices=['auto', 'cpu', 'cuda'] + cuda_devices, default='cpu', help="Which device to use")
+	parser.add_argument('-cpus', type=str, default='4', help="How many CPUs to use")
+	parser.add_argument('-batch', type=int, default=256, help="Size of a batch")
 	parser.add_argument('-seed', type=int, default=None, help="Random seed") # seed in multiprocessing is not implemented
 	parser.add_argument('-load_model', type=str, default=None, help="Load model from this file")
 	parser.add_argument('-epoch', type=int, default=1000, help="Epoch length")

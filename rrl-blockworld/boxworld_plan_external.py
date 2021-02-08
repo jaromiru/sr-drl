@@ -43,11 +43,10 @@ class BoxworldPlanExt():
 
 		# pddl-astar
 		path_len = re.search(r"^;; Length: (\d+)", out, re.MULTILINE).group(1)
-		path = re.findall(r"^\(move .*\)", out, re.MULTILINE)
 
 		# fast-downward
 		# path_len = re.search(r"Plan length: (\d+)", out, re.MULTILINE).group(1)
-		# path = None
+		path = re.findall(r"^\(move .*\)", out, re.MULTILINE)
 
 		path_len = int(path_len)
 

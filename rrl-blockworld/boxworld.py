@@ -5,6 +5,9 @@ from config import config
 from boxworld_plan import BoxworldPlan
 from boxworld_plan_external import BoxworldPlanExt
 
+
+# TODO - max stacks
+
 def _get_random_state(num_obj):
 	stacks = []
 	obj = np.arange(1, num_obj + 1)

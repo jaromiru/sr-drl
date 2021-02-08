@@ -1,9 +1,21 @@
-# credit to https://github.com/jrialland/python-astar/
+# -*- coding: utf-8 -*-
+""" generic A-Star path searching algorithm """
 
 from abc import ABCMeta, abstractmethod
 from heapq import heappush, heappop, heapify
 
+__author__ = "Julien Rialland"
+__copyright__ = "Copyright 2012-2017, J.Rialland"
+__license__ = "BSD"
+__version__ = "0.9"
+__maintainer__ = __author__
+__email__ = ''.join(map(chr, [106, 117, 108, 105, 101, 110, 46, 114, 105,
+                              97, 108, 108, 97, 110, 100, 64, 103, 109, 97, 105, 108, 46, 99, 111, 109]))
+__status__ = "Production"
+
+
 Infinite = float('inf')
+
 
 class AStar:
     __metaclass__ = ABCMeta
@@ -118,3 +130,6 @@ def find_path(start, goal, neighbors_fnct, reversePath=False, heuristic_cost_est
         def is_goal_reached(self, current, goal):
             return is_goal_reached_fnct(current, goal)
     return FindPath().astar(start, goal, reversePath)
+
+
+__all__ = ['AStar', 'find_path']

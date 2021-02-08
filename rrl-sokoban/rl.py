@@ -1,8 +1,15 @@
 import torch
 
-# TODO shape bug!
 # reward(s,a), value(s), value(s_), pi(a|s)
 def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, num_actions=None):
+	# make sure all dimensions are correct
+	r = r.flatten()
+	v = v.flatten()
+	v_ = v_.flatten()
+	pi = pi.flatten()
+	num_actions = num_actions.flatten()
+
+	# compute losses
 	log_pi = torch.log(pi + 1e-9)	# bug fix in torch.multinomial: this should never be zero...
 	q = r + gamma * v_.detach()
 
@@ -13,8 +20,6 @@ def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, num_actions=None):
 
 	adv = q - v
 	v_err = v_target - v
-
-	# print(adv.shape, pi.shape)
 
 	loss_pi = -adv.detach() * log_pi
 	loss_v  = v_err ** 2					# can use experience replay here
