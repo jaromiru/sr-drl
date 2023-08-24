@@ -1,4 +1,4 @@
-This code is a part of the paper *Symbolic Relational Deep Reinforcement Learning based on Graph Neural Networks*. 
+This code is a part of the paper *Symbolic Relational Deep Reinforcement Learning based on Graph Neural Networks and Autoregressive Policy Decomposition*. 
 
 # Brief instructions
 Choose the experiment you want to run, and execute `python main.py`. Check `python main.py --help` for additional arguments. If you have a trained model, you can evaluate it with `python main.py -eval -load model.pt`. For each experiment we include some trained models in the `rrl-*/_store/` directory.
