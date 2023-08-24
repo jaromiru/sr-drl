@@ -177,8 +177,9 @@ class Net(Module):
             target_net = self
 
         v_ = target_net(s_, only_v=True) * (1. - done)
-        num_actions = torch.tensor(n_stacks, dtype=torch.float32, device=self.device) ** 2
+        # num_actions = torch.tensor(n_stacks, dtype=torch.float32, device=self.device) ** 2
         # num_actions = torch.tensor([x[0].shape[0] ** 2 for x in s_], dtype=torch.float32, device=self.device) # (node * node) actions
+        num_actions = None # disable entropy scaling
 
         loss, loss_pi, loss_v, loss_h, entropy = a2c(r, v, v_, pi, config.gamma, config.alpha_v, self.alpha_h, config.q_range, num_actions)
 

@@ -32,16 +32,16 @@ def get_args():
 	cuda_devices = [f'cuda:{i}' for i in range(torch.cuda.device_count())]
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-device', type=str, choices=['auto', 'cpu', 'cuda'] + cuda_devices, default='cpu', help="Which device to use")
-	parser.add_argument('-cpus', type=str, default='4', help="How many CPUs to use")
-	parser.add_argument('-batch', type=int, default=256, help="Size of a batch")
+	parser.add_argument('-device', type=str, choices=['auto', 'cpu', 'cuda'] + cuda_devices, default='auto', help="Which device to use")
+	parser.add_argument('-cpus', type=str, default='auto', help="How many CPUs to use")
+	parser.add_argument('-batch', type=int, default=256, help="Size of a batch / How many CPUs to use")
 	parser.add_argument('-seed', type=int, default=None, help="Random seed") # seed in multiprocessing is not implemented
 	parser.add_argument('-load_model', type=str, default=None, help="Load model from this file")
 	parser.add_argument('-epoch', type=int, default=1000, help="Epoch length")
 	parser.add_argument('-max_epochs', type=int, default=None, help="Terminate after this many epochs")
 	parser.add_argument('-mp_iterations', type=int, default=5, help="Number of message passes")
 	parser.add_argument('-lr', type=float, default=3e-4, help="Initial learning rate")
-	parser.add_argument('-alpha_h', type=float, default=0.5e-4, help="Initial entropy regularization constant")
+	parser.add_argument('-alpha_h', type=float, default=2.5e-5, help="Initial entropy regularization constant")
 	parser.add_argument('-boxes', type=int, default=5, help="Number of boxes")
 
 	parser.add_argument('-trace', action='store_const', const=True, help="Show trace of the agent")
