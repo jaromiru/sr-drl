@@ -7,7 +7,6 @@ def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, num_actions=None):
 	v = v.flatten()
 	v_ = v_.flatten()
 	pi = pi.flatten()
-	num_actions = num_actions.flatten()
 
 	# compute losses
 	log_pi = torch.log(pi + 1e-9)	# bug fix in torch.multinomial: this should never be zero...
@@ -25,6 +24,7 @@ def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, num_actions=None):
 	loss_v  = v_err ** 2					# can use experience replay here
 
 	if num_actions is not None:
+		num_actions = num_actions.flatten()
 		legal_actions = num_actions > 1
 		num_actions[~legal_actions] = 2	# bug fix in pytorch: to avoid nan error during backprop
 		loss_h = (log_pi.detach() * log_pi) / torch.log(num_actions) # scale the entropy with its maximum

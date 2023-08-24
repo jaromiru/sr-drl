@@ -160,9 +160,11 @@ class GraphSokoban(gym.Env):
 		s_shape = s[0].shape
 
 		if self.pos_feats:
-			pos = np.mgrid[-1:1:complex(s_shape[0]), -1:1:complex(s_shape[1])] # <- positional features
+			yl, xl = s_shape[0], s_shape[1]
+			# pos = np.mgrid[-1:1:complex(s_shape[0]), -1:1:complex(s_shape[1])] # <- positional features
+			pos = np.mgrid[0:yl-1:complex(yl), 0:xl-1:complex(xl)] / 10. # <- positional features
 		else:
-			pos = np.zeros((2, *s_shape))	# <- no positional features
+			pos = np.zeros((0, *s_shape))	# <- no positional features
 
 		walls, goals, boxes, player = s
 
@@ -177,7 +179,10 @@ class GraphSokoban(gym.Env):
 		n_feats = n_feats[no_walls]
 
 		# flatten
-		n_feats = np.reshape(n_feats, (-1, 5))
+		if self.pos_feats:
+			n_feats = np.reshape(n_feats, (-1, 5))
+		else:
+			n_feats = np.reshape(n_feats, (-1, 3))
 
 		# ---- get edges
 		edge_feats, edge_index = self._create_edges(no_walls, len(no_walls_indices))
@@ -191,6 +196,8 @@ class GraphSokoban(gym.Env):
 
 		pos, a = action
 		ppos = self._get_ppos()
+
+		a += 1 # disable the move action (mapping [0 - 4] to [1 - 4])
 
 		el_steps_start = self.env.num_env_steps
 		
@@ -240,7 +247,8 @@ class GraphSokoban(gym.Env):
 
 		return self._to_graph(s)
 
-	def render(self, **kwargs):
+	def render(self, mode, **kwargs):
+		kwargs['mode'] = mode
 		return self.env.render(**kwargs)
 
 # def random_box():
@@ -287,13 +295,14 @@ class GraphSokoban(gym.Env):
 	# 	# super(SokobanEnv, env).step(a)
 
 def save_img():
-	soko_size = (13, 13)
+	soko_size = (10, 10)
+	soko_boxes = 4
+
 	# soko_size = (15, 15)
-	soko_boxes = 5
 
 	filename = f"{soko_size[0]}x{soko_size[1]}-{soko_boxes}box.png"
 
-	env = GraphSokoban(soko_size=soko_size, soko_boxes=soko_boxes)
+	env = GraphSokoban(soko_size=soko_size, soko_boxes=soko_boxes, boxoban=True)
 	env.reset()
 
 	from PIL import Image

@@ -1,12 +1,16 @@
+# TODOs:
+# - preconditions for actions (only appliable if there is/isn't a box)
+
 import torch, numpy as np
 import torch_geometric, torch_scatter
 
 from torch.nn import *
-from torch_geometric.nn import MessagePassing, GlobalAttention
 from torch_geometric.data import Data, Batch
 
 from rl import a2c
 from config import config
+
+from graph_nns import *
 
 def segmented_sample(probs, splits):
     probs_split = torch.split(probs, splits)
@@ -18,22 +22,32 @@ class Net(Module):
     def __init__(self):
         super().__init__()
 
-        self.embed_node = Sequential( Linear(5, config.emb_size), LeakyReLU() )
+        if config.pos_feats:
+            node_feat_size = 5
+        else:
+            node_feat_size = 3
+
+        self.embed_node = Sequential( Linear(node_feat_size, config.emb_size), LeakyReLU() )
         # self.embed_edge = Sequential( Linear(4, config.emb_size), LeakyReLU() )
 
-        self.message_passing = MultiMessagePassing(steps=config.mp_iterations)
+        self.gnn = MultiMessagePassing(config.mp_iterations)
 
-        self.node_select = Linear(config.emb_size, 5) # node features -> node probability for all 5 actions
-        self.action_select = Linear(config.emb_size, 5)  # global features -> 5 actions
+        # self.gnn = MultiAlternatingTransformer(input_size=config.emb_size, output_size=config.emb_size, edge_size=4, layers=config.mp_iterations, heads=config.att_heads, mean_at_end=True)
+        # self.gnn = MultiTransformer(input_size=config.emb_size, output_size=config.emb_size, edge_size=4, layers=config.mp_iterations, heads=config.att_heads, mean_at_end=True)
+        # self.pooling = GlobalPooling()
+
+        # self.node_select = Sequential(Linear(config.emb_size, config.emb_size), LeakyReLU(), Linear(config.emb_size, 5)) # node features -> node probability for all 5 actions
+        # self.action_select = Sequential(Linear(config.emb_size * 2, config.emb_size), LeakyReLU(), Linear(config.emb_size, 5))  # global features -> 5 actions
+        # self.value_function = Sequential(Linear(config.emb_size * 2, config.emb_size), LeakyReLU(), Linear(config.emb_size, 1)) # global features -> state value
+
+        self.node_select = Linear(config.emb_size, 4) # node features -> node probability for all 4 actions (without the move action)
+        self.action_select = Linear(config.emb_size, 4)  # global features -> 4 actions 
         self.value_function = Linear(config.emb_size, 1) # global features -> state value
 
         self.opt = torch.optim.AdamW(self.parameters(), lr=config.opt_lr, weight_decay=config.opt_l2)
 
         self.device = torch.device(config.device)
         self.to(self.device)
-
-        # auxiliary variables
-        # self.one_hot = torch.eye(5).to(self.device)
 
         self.lr = config.opt_lr
         self.alpha_h = config.alpha_h
@@ -62,39 +76,39 @@ class Net(Module):
 
             params_self[i].data.copy_(val_new)
 
-    def forward(self, s_batch, only_v=False, complete=False):
-        # convert to tensors
+    @staticmethod
+    def prepare_batch(s_batch):
         node_feats, edge_attr, edge_index, step_idx, used_indices = zip(*s_batch)
 
-        # the tensors have different length
-        node_feats = [torch.tensor(x, dtype=torch.float32, device=self.device) for x in node_feats]
-        edge_attr  = [torch.tensor(x, dtype=torch.float32, device=self.device) for x in edge_attr]
-        edge_index = [torch.tensor(x, dtype=torch.int64, device=self.device) for x in edge_index]
-        # step_idx = torch.tensor(step_idx, dtype=torch.float32, device=self.device)
-        step_idx = None
+        node_feats = [torch.tensor(x, dtype=torch.float32, device=config.device) for x in node_feats]
+        edge_attr  = [torch.tensor(x, dtype=torch.float32, device=config.device) for x in edge_attr]
+        edge_index = [torch.tensor(x, dtype=torch.int64, device=config.device) for x in edge_index]
 
         # create batch
         data = [Data(x=node_feats[i], edge_attr=edge_attr[i], edge_index=edge_index[i]) for i in range( len(s_batch) )]
         data_lens = [x.num_nodes for x in data]
         batch = Batch.from_data_list(data)
-        batch_ind = batch.batch.to(self.device) # graph indices in the batch
+        batch_ind = batch.batch.to(config.device) # graph indices in the batch
 
-        # embed features
-        x, edge_attr, edge_index = batch.x, batch.edge_attr, batch.edge_index
-        x = self.embed_node(x)
-        # edge_attr = self.embed_edge(edge_attr)
+        return data, data_lens, batch, batch_ind
 
-        # push through graph
-        x, xg = self.message_passing(x, step_idx, edge_attr, edge_index, batch_ind, batch.num_graphs)
+    def forward(self, s_batch, only_v=False, complete=False):
+        data, data_lens, batch, batch_ind = self.prepare_batch(s_batch)
 
-        # compute value function
-        value = self.value_function(xg)
+        # process state
+        x = self.embed_node(batch.x)
+        # x = self.gnn(x, batch.edge_index, batch.edge_attr)
+        x, x_pooled = self.gnn(x, batch.edge_attr, batch.edge_index, batch_ind, batch.num_graphs)
+        # x_pooled = self.pooling(x, batch_ind)
+
+        # decode value
+        value = self.value_function(x_pooled)
 
         if only_v:
             return value
 
-        def sample_action(xg):
-            out_action = self.action_select(xg)
+        def sample_action(x_pooled):
+            out_action = self.action_select(x_pooled)
             action_softmax = torch.distributions.Categorical( torch.softmax(out_action, dim=1) )
             action_selected = action_softmax.sample()
 
@@ -105,9 +119,14 @@ class Net(Module):
             out_node = self.node_select(x)                      # node_select outputs actiovations for each action,
             node_activation = out_node.gather(1, a_expanded)    # hence here we select only the performed action
 
+            # enable selection of boxes only
+            if config.precond:
+                nobox_mask = batch.x[:, 1] == 0.
+                node_activation[nobox_mask] = -np.inf
+
             node_softmax = torch_geometric.utils.softmax(node_activation.flatten(), batch_ind)
             node_selected = segmented_sample(node_softmax, data_lens)
-
+            
             # since all the graphs are of the same size, we can simplify things     
             # node_activation = node_activation.view(batch.num_graphs, data[0].num_nodes)
             # node_softmax = torch.distributions.Categorical( torch.softmax(node_activation, dim=1) )
@@ -115,19 +134,25 @@ class Net(Module):
 
             return node_softmax, node_selected
 
-        # return complete probs for debug
+        # return complete probs for debug; assuming only one graph
         if complete:
-            action_softmax, _ = sample_action(xg)
+            action_softmax, _ = sample_action(x_pooled)
 
-            out_node = self.node_select(x)
-            # if complete, there is only one sample
-            node_activations = out_node.reshape(batch.num_graphs, data[0].num_nodes, 5)
+            out_node = self.node_select(x)     
+
+            # enable selection of boxes only
+            if config.precond:
+                nobox_mask = batch.x[:, 1] == 0.
+                out_node[nobox_mask] = -np.inf       
+
+            node_activations = out_node.reshape(batch.num_graphs, data[0].num_nodes, 4)
             node_softmaxes = node_activations.softmax(dim=1)
+            node_softmaxes = torch.nan_to_num(node_softmaxes)
 
             return action_softmax, node_softmaxes, value
 
         # select an action & node
-        action_softmax, action_selected = sample_action(xg)
+        action_softmax, action_selected = sample_action(x_pooled)
         node_softmax, node_selected = sample_node(x, action_selected)
 
         # compute the selected action probability
@@ -152,7 +177,8 @@ class Net(Module):
 
         v_ = target_net(s_, only_v=True) * (1. - done)
 
-        num_actions = torch.tensor([x[0].shape[0] * 5 for x in s_], dtype=torch.float32, device=self.device).reshape(-1, 1) # 5 actions per node
+        # num_actions = torch.tensor([x[0].shape[0] * 5 for x in s_], dtype=torch.float32, device=self.device).reshape(-1, 1) # 5 actions per node
+        num_actions = None # disable entropy scaling
 
         loss, loss_pi, loss_v, loss_h, entropy = a2c(r, v, v_, pi, config.gamma, config.alpha_v, self.alpha_h, config.q_range, num_actions)
 
@@ -176,66 +202,3 @@ class Net(Module):
     def set_alpha_h(self, alpha_h):
         self.alpha_h = alpha_h
 
-# ----------------------------------------------------------------------------------------
-class MultiMessagePassing(Module):
-    def __init__(self, steps):
-        super().__init__()
-
-        self.gnns = ModuleList( [GraphNet() for i in range(steps)] )
-        self.pools = ModuleList( [GlobalNode() for i in range(steps)] )
-
-        self.steps = steps
-
-    def forward(self, x, step_idx, edge_attr, edge_index, batch_ind, num_graphs):
-        x_global = torch.zeros(num_graphs, config.emb_size, device=config.device)  # this can encode context
-        # x_global[:, 0] = step_idx   # include step_idx into context
-
-        for i in range(self.steps):
-            x = self.gnns[i](x, edge_attr, edge_index, x_global, batch_ind)
-            x_global = self.pools[i](x_global, x, batch_ind)
-
-        return x, x_global
-
-# ----------------------------------------------------------------------------------------
-class GlobalNode(Module):       
-    def __init__(self):
-        super().__init__()
-
-        att_mask = Linear(config.emb_size, 1)
-        att_feat = Sequential( Linear(config.emb_size, config.emb_size), LeakyReLU() )
-
-        self.glob = GlobalAttention(att_mask, att_feat)
-        self.tranform = Sequential( Linear(config.emb_size + config.emb_size, config.emb_size), LeakyReLU() )
-
-    def forward(self, xg_old, x, batch):
-        xg = self.glob(x, batch)
-
-        xg = torch.cat([xg, xg_old], dim=1)
-        xg = self.tranform(xg) + xg_old # skip connection
-
-        return xg
-
-# ----------------------------------------------------------------------------------------
-class GraphNet(MessagePassing):
-    def __init__(self):
-        super().__init__(aggr='max')
-
-        self.f_mess = Sequential( Linear(config.emb_size + 4, config.emb_size), LeakyReLU() )
-        self.f_agg  = Sequential( Linear(config.emb_size + config.emb_size + config.emb_size, config.emb_size), LeakyReLU() )
-
-    def forward(self, x, edge_attr, edge_index, xg, batch):
-        xg = xg[batch]
-
-        return self.propagate(edge_index, x=x, edge_attr=edge_attr, xg=xg)
-
-    def message(self, x_j, edge_attr):
-        z = torch.cat([x_j, edge_attr], dim=1)
-        z = self.f_mess(z)
-
-        return z 
-
-    def update(self, aggr_out, x, xg):
-        z = torch.cat([x, xg, aggr_out], dim=1)
-        z = self.f_agg(z) + x # skip connection
-
-        return z

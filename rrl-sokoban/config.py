@@ -25,34 +25,35 @@ class Object:
 		self.gamma = 0.99
 		self.batch = args.batch
 
+		self.precond = args.precond
 		self.subset = args.subset
 		self.pos_feats = args.pos_feats
 
 		self.epoch = args.epoch
 
 		self.alpha_v = 0.1
-		self.alpha_h = 0.2
+		self.alpha_h = args.alpha_h
 
 		self.target_rho = 0.005
-		self.emb_size = 64
+		self.emb_size = args.emb_size
 		self.mp_iterations = args.mp_iterations
+		# self.att_heads = args.att_heads
 
 		self.seed = args.seed
 		self.device = get_device(args.device)
 		self.cpus = get_cpu_count(args.cpus)
 
-		self.opt_lr = 3e-3
+		self.opt_lr = args.lr
 		self.opt_l2 = 1.0e-4
-		self.opt_max_norm = 5.0
+		self.opt_max_norm = args.max_norm
 
 		self.sched_lr_factor = 0.5
-		self.sched_lr_min    = 1.0e-4
+		self.sched_lr_min    = self.opt_lr / 30
 		self.sched_lr_rate   = 20 * self.epoch
 		
 		self.sched_alpha_h_factor = 1.0
-		self.sched_alpha_h_min    = 0.1
+		self.sched_alpha_h_min    = self.alpha_h / 2
 		self.sched_alpha_h_rate   = 1 * self.epoch
-
 
 		self.soko_max_steps = 200
 
@@ -60,8 +61,7 @@ class Object:
 
 		self.max_epochs = args.max_epochs
 		self.log_rate = 1 * self.epoch
-		self.eval_problems = 1000
-		# self.eval_steps = 500
+		self.eval_problems = 200
 		self.eval_batch = 64
 
 		self.load_model = args.load_model
