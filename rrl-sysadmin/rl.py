@@ -7,7 +7,6 @@ def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, log_num_actions=Non
 	v = v.flatten()
 	v_ = v_.flatten()
 	pi = pi.flatten()
-	log_num_actions = log_num_actions.flatten()
 
 	# compute losses
 	log_pi = torch.log(pi + 1e-9)	# bug fix in torch.multinomial: this should never be zero...
@@ -38,6 +37,7 @@ def a2c(r, v, v_, pi, gamma, alpha_v, alpha_h, q_range=None, log_num_actions=Non
 	# exit()
 
 	if log_num_actions is not None:
+		log_num_actions = log_num_actions.flatten()
 		# legal_actions = num_actions > 1
 		# num_actions[~legal_actions] = 2	# bug fix in pytorch: to avoid nan error during backprop
 

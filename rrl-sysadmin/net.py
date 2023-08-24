@@ -208,11 +208,15 @@ class Net(Module):
 
         v_ = target_net(s_, only_v=True) * (1. - done)
 
-        if self.multi:
-            log_num_actions = torch.tensor(num_obj, dtype=torch.float32, device=self.device) * 0.693147 # log(2)
-        else:
-            log_num_actions = (torch.tensor(num_obj, dtype=torch.float32, device=self.device) + 1).log() # one noop
+        # if self.multi:
+        #     log_num_actions = torch.tensor(num_obj, dtype=torch.float32, device=self.device) * 0.693147 # log(2)
+        #     # log_num_actions[:] = 41. * np.log(2) # fix the number of object to 41
 
+        # else:
+        #     log_num_actions = (torch.tensor(num_obj, dtype=torch.float32, device=self.device) + 1).log() # one noop
+        #     # log_num_actions[:] = np.log(41) # fix the number of object to 41
+
+        log_num_actions = None # disable entropy scaling
         # print(log_num_actions)
 
         loss, loss_pi, loss_v, loss_h, entropy = a2c(r, v, v_, pi, config.gamma, config.alpha_v, self.alpha_h, config.q_range, log_num_actions)

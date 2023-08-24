@@ -44,7 +44,7 @@ def get_args():
 	
 	parser.add_argument('-mp_iterations', type=int, default=5, help="Number of message passes")
 	parser.add_argument('-lr', type=float, default=3e-3, help="Initial learning rate")
-	parser.add_argument('-alpha_h', type=float, default=0.3, help="Initial entropy regularization constant")
+	parser.add_argument('-alpha_h', type=float, default=0.1, help="Initial entropy regularization constant")
 	
 	parser.add_argument('-nodes', type=int, default=5, help="Number of nodes")
 
@@ -153,13 +153,14 @@ def debug_net(net):
 		for i in range(10):
 			a, v, pi, pi_full = net([s])
 			a = a[0] # only single env
-
-			gvis.update_state(test_env, a, pi_full)
-			plot = wandb.Image(gvis.plot())
-			plots.append(plot)
-
 			s, r, d, i = test_env.step(a)
 
+		a, v, pi, pi_full = net([s])
+		# gvis.update_state(test_env, None, pi_full)
+		gvis.update_state(test_env, a, pi_full)
+		plt = gvis.plot()
+		plot = wandb.Image(plt)
+		plots.append(plot)
 		net.train()
 
 	test_env.close()
@@ -255,6 +256,9 @@ if __name__ == '__main__':
 	tqdm_main = tqdm(desc='Training', unit=' steps')
 	s = env.reset()
 
+	# debug_net(net)
+	# exit()
+
 	for step in itertools.count(start=1):
 		a, v, pi, pi_full = net(s)
 		s, r, d, i = env.step(a)
@@ -287,7 +291,7 @@ if __name__ == '__main__':
 			log_step = step // config.log_rate
 
 			eval_log = evaluate(net)
-			debug_log = debug_net(net)
+			# debug_log = debug_net(net)
 
 			log = {
 				'env_steps': tot_env_steps,
@@ -308,7 +312,7 @@ if __name__ == '__main__':
 			print(log, eval_log)
 
 			wandb.log(eval_log, commit=False)
-			wandb.log(debug_log, commit=False)
+			# wandb.log(debug_log, commit=False)
 			wandb.log(log)
 
 			# save model to wandb
